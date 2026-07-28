@@ -1,4 +1,4 @@
-# Dual-Cue AI-Generated Image Detection: MLEP & LOTA
+# Dual-Cue AI-Generated Image Detection: MLEP & LOTA Fusion
 ### Shared Dataset Infrastructure & LOw-biT pAtch (LOTA) Preprocessing Engine
 
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-ee4c2c?style=flat-square&logo=pytorch)](https://pytorch.org)
