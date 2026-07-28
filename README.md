@@ -70,6 +70,9 @@ pip install -r requirements.txt
 
 Once your environment is activated, you can execute the project pipelines using the provided command-line scripts in `scripts/`.
 
+> [!TIP]
+> **Looking for detailed information on origin datasets, external benchmarks (GenImage, ForenSynths, CIFAKE), or the exact structure of the `outputs/` directory?** See our comprehensive guide: [DATASET_README.md](file:///Volumes/Seagate/JIO%20TERM/JIO-TERM%203/DL%20AND%20CV%20PROJECT/DATASET_README.md).
+
 ### A. Download Open-Access Datasets or Generate Large-Scale Training Data (`download_dataset.py`)
 To scale up evaluations, we provide an automated utility (`scripts/download_dataset.py`) that downloads open-access Real vs. AI-generated image datasets from HuggingFace Hub (`dima806/ai_vs_real_image_detection`) or generates large-scale structured benchmark datasets locally across 5 generator domains:
 
@@ -240,6 +243,7 @@ Displays the selected Top-$K$ highest-scoring patches alongside their binarized 
 ```text
 DL AND CV PROJECT/
 ├── README.md                      # Master project documentation (this file)
+├── DATASET_README.md              # Complete guide to origin benchmarks, datasets & output folder architecture
 ├── requirements.txt               # Pip dependency specification
 ├── environment.yml                # Conda environment specification
 ├── setup_env.sh                   # Automated environment setup bash script
