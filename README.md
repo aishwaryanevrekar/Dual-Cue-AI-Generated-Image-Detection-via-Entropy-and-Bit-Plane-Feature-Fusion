@@ -86,6 +86,23 @@ python scripts/download_dataset.py --source local --target_dir outputs/dataset_1
 * `--source`: Dataset source, either `huggingface` (open-access hub dataset) or `local` (synthetic multi-texture benchmark generation).
 * `--num_samples`: Total number of images to ingest or generate across class domains (default: `1000`).
 
+#### 📊 Dataset Composition & Domain Breakdown
+Whether downloading from HuggingFace Hub or generating synthetic benchmark data locally, the dataset adheres strictly to the **Shared Dataset Infrastructure** standard: an exact **50/50 class balance** (50% Authentic Real images, 50% AI-Generated images) stratified across multiple generative domains.
+
+When generating the standardized **1,400-image benchmark dataset** (`--num_samples 1400`), the data is structured into **5 distinct domain subdirectories**:
+
+| Domain Subdirectory | Class Label | Sample Count (N=1400) | Proportion | Simulated Characteristics & Steganalysis Noise Profile |
+| :--- | :---: | :---: | :---: | :--- |
+| `0_real/` | **Real (0)** | **700 images** | **50.0%** | Authentic natural scenes with low, smooth sensor noise gradients (`noise_lvl: 5`, natural RGB baselines). |
+| `1_stylegan2/` | **AI (1)** | **175 images** | **12.5%** | GAN architecture simulating localized high-frequency checkerboard upsampling artifacts (`noise_lvl: 25`). |
+| `1_midjourney/` | **AI (1)** | **175 images** | **12.5%** | Modern diffusion models with smooth texture transitions and subtle LSB steganographic anomalies (`noise_lvl: 15`). |
+| `1_flux/` | **AI (1)** | **175 images** | **12.5%** | State-of-the-art flow matching/diffusion models with localized LSB quantization anomalies (`noise_lvl: 30`). |
+| `1_progan/` | **AI (1)** | **175 images** | **12.5%** | Progressive GAN architecture with pronounced frequency-domain upsampling footprints (`noise_lvl: 35`). |
+| **Total Combined** | **Real + AI** | **1,400 images** | **100%** | **Guarantees unbiased 1:1 class-balanced mini-batch sampling for downstream classification pipelines.** |
+
+> [!NOTE]
+> **Why this 50/50 Stratified Split Matters:** During end-to-end execution (`run_project.py`), the `BalancedRealFakeSampler` guarantees that every mini-batch (e.g., batch size 8) contains exactly 4 Real images and 4 AI images sampled uniformly across these 4 AI generator domains. This prevents catastrophic class imbalance and ensures robust cross-domain generalization.
+
 ### B. Run Master End-to-End Pipeline (`run_project.py`)
 This script demonstrates the complete integration of the **Shared Dataset Infrastructure** with the **LOTA Preprocessing Engine**. By default, it targets the **1,400-sample benchmark dataset** (`outputs/dataset_1400`), automatically partitioning stratified splits (60% Train / 20% Val / 20% Test), building class-balanced DataLoaders (guaranteeing 50/50 Real vs. AI mini-batch ratios), and executing 100% vectorized Top-$K$ patch extraction:
 
