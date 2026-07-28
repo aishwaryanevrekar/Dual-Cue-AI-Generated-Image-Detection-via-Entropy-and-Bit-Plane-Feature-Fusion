@@ -124,9 +124,9 @@ def generate_large_scale_benchmark(target_dir: Path, total_samples: int = 1000) 
 
 def main():
     parser = argparse.ArgumentParser(description="Download or Generate Large-Scale Training Dataset.")
-    parser.add_argument("--target_dir", type=str, default="outputs/big_dataset", help="Directory to save downloaded/generated images.")
+    parser.add_argument("--target_dir", type=str, default="outputs/dataset_1400", help="Directory to save downloaded/generated images.")
     parser.add_argument("--source", type=str, choices=["huggingface", "local"], default="local", help="Source: download from HuggingFace or generate locally.")
-    parser.add_argument("--num_samples", type=int, default=1000, help="Total number of images to generate or download.")
+    parser.add_argument("--num_samples", type=int, default=1400, help="Total number of images to generate or download.")
     args = parser.parse_args()
 
     target_path = root_path / args.target_dir

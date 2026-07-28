@@ -2,7 +2,7 @@
 # Compliant with ICCV 2025 LOTA Specification and 2026 Roadmap
 
 dataset:
-  data_dir: "data/raw/forensynths"
+  data_dir: "outputs/dataset_1400"
   image_size: 256
   batch_size: 32
   num_workers: 4
