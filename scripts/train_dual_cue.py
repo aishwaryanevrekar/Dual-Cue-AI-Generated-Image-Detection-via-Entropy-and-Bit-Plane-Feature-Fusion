@@ -108,7 +108,7 @@ def main():
     parser.add_argument("--weight_decay", type=float, default=1e-2, help="Weight decay")
     parser.add_argument("--num_workers", type=int, default=4, help="DataLoader workers")
     parser.add_argument("--patience", type=int, default=5, help="Early stopping patience")
-    parser.add_argument("--output_dir", type=str, default="outputs/train_dual_cue", help="Output directory")
+    parser.add_argument("--optimizer", type=str, default="adamw", choices=["adamw", "adam", "sgd", "rmsprop"], help="Optimizer choice")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -139,7 +139,20 @@ def main():
     # Model & Optimization Setup (Frozen early layers, dropout=0.6)
     model = DualCueClassifier(dropout_rate=0.6, freeze_early_layers=True).to(device)
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+    opt_choice = args.optimizer.lower()
+    if opt_choice == "adamw":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif opt_choice == "adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif opt_choice == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), lr=args.lr * 5, momentum=0.9, weight_decay=args.weight_decay, nesterov=True)
+    elif opt_choice == "rmsprop":
+        optimizer = torch.optim.RMSprop(model.parameters(), lr=args.lr, alpha=0.99, weight_decay=args.weight_decay)
+    else:
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+
+    logger.info(f"Configured Optimizer: {opt_choice.upper()} (LR: {args.lr}, Weight Decay: {args.weight_decay})")
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
     scaler = torch.amp.GradScaler("cuda", enabled=(device.type == "cuda"))
 

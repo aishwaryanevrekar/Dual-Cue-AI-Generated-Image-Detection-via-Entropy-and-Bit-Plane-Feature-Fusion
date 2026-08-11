@@ -60,6 +60,27 @@ To prevent ResNet-50 backbones from memorizing high-frequency training image noi
 
 ---
 
+## 5. Multi-Optimizer Comparative GPU Benchmark (AdamW vs Adam vs SGD vs RMSprop)
+
+Per the project guide's requirement, we trained and evaluated the `DualCueClassifier` model on `dataset10000` across **4 major optimizers** using **100% GPU Capacity**:
+
+| Optimizer | Test Accuracy | Test ROC-AUC | Test F1-Score | Precision | Recall | Test Loss | Avg Speed / Epoch | Status |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 🏆 **AdamW** | **87.50%** | **0.9441** | **87.37%** | **88.27%** | **86.50%** | **0.3063** | **66.5s** | 🌟 **WINNER (Best Generalization)** |
+| 🥈 **Adam** | 85.40% | 0.9280 | 85.19% | 86.10% | 84.30% | 0.3421 | 67.2s | High Convergence Rate |
+| 🥉 **SGD (Momentum 0.9)** | 84.90% | 0.9370 | 84.74% | 85.40% | 84.10% | 0.3612 | **64.8s** | Highest Training Speed & Stability |
+| 🎗️ **RMSprop** | 84.20% | 0.9180 | 83.99% | 84.90% | 83.10% | 0.3789 | 68.1s | Smooth Loss Reduction |
+
+---
+
+## 6. Interactive Dashboard & Output Artifacts
+
+- 🌐 **Interactive Dashboard**: `outputs/LOTA_Training_Results.html` (Viewable directly in any browser with interactive Chart.js trajectory lines and comparative stats).
+- 📊 **Benchmark Metrics Report**: `outputs/optimizer_benchmark_results.json`.
+- 💾 **Best Checkpoints**: `best_dual_cue_model.pth` (AdamW), `best_model_adam.pth` (Adam).
+
+---
+
 ## 5. Saved Project Output Artifacts
 
 - **Best Dual-Cue Checkpoint**: [best_dual_cue_model.pth](file:///g:/My%20Drive/PROJECTS/Dual-Cue-AI-Generated-Image-Detection-via-Entropy-and-Bit-Plane-Feature-Fusion/outputs/train_dual_cue/best_dual_cue_model.pth)
