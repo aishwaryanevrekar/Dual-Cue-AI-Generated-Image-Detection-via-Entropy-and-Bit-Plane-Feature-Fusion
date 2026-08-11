@@ -25,24 +25,25 @@ def test_bit_plane_reconstruction():
 
 
 def test_lsb_composition_and_thresholding():
-    """Verify LSB formula z = 4*x2 + 2*x1 + x0 and binarized threshold normalization."""
+    """Verify LSB formula z = 4*x2 + 2*x1 + x0 and LOTA-scl min-max normalization."""
     extractor = TopKLOTAExtractor(bit_planes=[0, 1, 2], threshold_val=255.0)
     
     # Create synthetic input tensor with known bit patterns
-    # Pixel 0: val=0 -> LSB=0 -> z=0 -> norm=0.0
-    # Pixel 1: val=1 -> LSB=1 -> z=1 -> norm=255.0
-    # Pixel 2: val=8 (binary 1000) -> LSB=0 -> z=0 -> norm=0.0
-    # Pixel 3: val=7 (binary 0111) -> LSB=7 -> z=7 -> norm=255.0
+    # Pixel 0 (0,0): val=0 -> LSB=0 -> z=0 -> min
+    # Pixel 1 (0,1): val=1 -> LSB=1 -> z=1
+    # Pixel 2 (1,0): val=8 (binary 1000) -> LSB=0 -> z=0 -> min
+    # Pixel 3 (1,1): val=7 (binary 0111) -> LSB=7 -> z=7 -> max
     x_vals = torch.tensor([[[[0.0, 1.0], [8.0, 7.0]]]], dtype=torch.float32) # (1, 1, 2, 2)
     x = torch.zeros((1, 3, 256, 256), dtype=torch.float32)
     x[:, :, 0:2, 0:2] = x_vals
     
     z_norm = extractor._extract_lsb_threshold(x)
     
-    assert z_norm[0, 0, 0, 0].item() == 0.0
-    assert z_norm[0, 0, 0, 1].item() == 255.0
-    assert z_norm[0, 0, 1, 0].item() == 0.0
-    assert z_norm[0, 0, 1, 1].item() == 255.0
+    # z_min=0, z_max=7.
+    # z_norm for pixel (0,0): 255 * 0/7 = 0.0
+    # z_norm for pixel (1,1): 255 * 7/7 = 255.0
+    assert torch.isclose(z_norm[0, 0, 0, 0], torch.tensor(0.0), atol=1e-3)
+    assert torch.isclose(z_norm[0, 0, 1, 1], torch.tensor(255.0), atol=1e-3)
 
 
 def test_mgps_scoring_on_flat_and_edge_images():
@@ -64,38 +65,21 @@ def test_mgps_scoring_on_flat_and_edge_images():
     assert scores_textured[0, 63].item() == 0.0  # Bottom-right patch should be 0.0
 
 
-def test_topk_quadrant_diversity():
-    """Verify that selected K=4 indices belong to 4 distinct spatial quadrants."""
-    extractor = TopKLOTAExtractor(k_patches=4, grid_size=8)
+def test_max_gradient_patch_selection():
+    """Verify that selected patch index corresponds to maximum MGPS score (Eq 6 in paper)."""
+    extractor = TopKLOTAExtractor(grid_size=8)
     
-    # Create artificial score vector where multiple peaks exist in quadrant 0
-    # but quadrant diverse selection forces picking 1 peak per quadrant
     scores = torch.zeros((1, 64), dtype=torch.float32)
+    scores[0, 42] = 150.0  # Set maximum score at patch index 42
     
-    # Quadrant 0 (rows 0-3, cols 0-3): set indices 0 and 1 very high
-    scores[0, 0] = 100.0
-    scores[0, 1] = 90.0
-    
-    # Quadrant 1 (rows 0-3, cols 4-7): set index 4 high
-    scores[0, 4] = 50.0
-    
-    # Quadrant 2 (rows 4-7, cols 0-3): set index 32 high
-    scores[0, 32] = 60.0
-    
-    # Quadrant 3 (rows 4-7, cols 4-7): set index 36 high
-    scores[0, 36] = 70.0
-    
-    indices = extractor._select_topk_quadrant_diverse(scores)  # (1, 4)
-    selected = set(indices[0].tolist())
-    
-    # Despite index 1 having a higher score (90) than indices 4, 32, 36,
-    # quadrant diversity must select exactly one from each quadrant: {0, 4, 32, 36}
-    assert selected == {0, 4, 32, 36}
+    top1_idx = extractor._select_max_gradient_patch(scores)  # (1, 1)
+    assert top1_idx.shape == (1, 1)
+    assert top1_idx[0, 0].item() == 42
 
 
 def test_forward_pipeline_output_shapes():
     """Verify all returned output shapes and data types from forward pass."""
-    extractor = TopKLOTAExtractor(k_patches=4, patch_size=32, grid_size=8)
+    extractor = TopKLOTAExtractor(patch_size=32, grid_size=8)
     x = torch.randint(0, 256, (2, 3, 256, 256), dtype=torch.float32)
     
     out = extractor(x)
@@ -103,6 +87,7 @@ def test_forward_pipeline_output_shapes():
     assert isinstance(out, dict)
     assert out["z_norm"].shape == (2, 3, 256, 256)
     assert out["mgps_scores"].shape == (2, 64)
-    assert out["topk_indices"].shape == (2, 4)
-    assert out["topk_patches"].shape == (2, 4, 3, 32, 32)
-    assert out["noise_tensor"].shape == (2, 12, 32, 32)
+    assert out["top1_index"].shape == (2, 1)
+    assert out["top1_patch"].shape == (2, 1, 3, 32, 32)
+    assert out["noise_tensor"].shape == (2, 3, 256, 256)
+

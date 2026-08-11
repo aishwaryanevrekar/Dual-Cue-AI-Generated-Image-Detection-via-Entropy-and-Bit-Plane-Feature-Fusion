@@ -32,30 +32,35 @@ def get_logger(
     numeric_level = getattr(logging, level.upper(), logging.INFO)
     logger.setLevel(numeric_level)
 
-    # Avoid adding duplicate handlers if logger is already configured
-    if logger.handlers:
-        return logger
-
     # Log formatter
     formatter = logging.Formatter(
         fmt="%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Console stream handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(numeric_level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    # Console stream handler (add if no handlers exist)
+    if not logger.handlers:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(numeric_level)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     # Optional file handler
     if log_dir is not None:
         log_path = Path(log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.FileHandler(log_path / log_filename, encoding="utf-8")
-        file_handler.setLevel(numeric_level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        file_path = (log_path / log_filename).resolve()
+        
+        # Check if file handler for this file is already attached
+        file_handler_exists = any(
+            isinstance(h, logging.FileHandler) and Path(h.baseFilename).resolve() == file_path
+            for h in logger.handlers
+        )
+        if not file_handler_exists:
+            file_handler = logging.FileHandler(file_path, encoding="utf-8")
+            file_handler.setLevel(numeric_level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
 
     # Prevent propagation to root logger to avoid double printing
     logger.propagate = False

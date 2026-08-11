@@ -1,135 +1,79 @@
 """
-LOTA Steganalysis Neural Network Classifier.
-Exclusively uses LOTA least-significant bit (LSB) noise maps and 4-directional MGPS Top-K quadrant patches.
+Dual-Cue Feature Classifiers (LOTA and MLEP)
+Updated to match ICCV 2025: LOTA uses pre-trained ResNet-50.
 """
 
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Tuple, Optional
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
+from torchvision.models import resnet50, ResNet50_Weights
 from src.models.lota import TopKLOTAExtractor
 from src.utils.logger import get_logger
 
-logger = get_logger("lota_classifier")
-
-
-class LOTASteganalysisBackbone(nn.Module):
-    """
-    Deep Convolutional Feature Extractor operating on LOTA stacked noise patch tensors (B, 12, 32, 32).
-    """
-    def __init__(self, in_channels: int = 12, feature_dim: int = 256):
-        super().__init__()
-        
-        # Layer 1: 12 -> 32
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(2, 2),  # -> 16x16
-        )
-
-        # Layer 2: 32 -> 64
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(2, 2),  # -> 8x8
-        )
-
-        # Layer 3: 64 -> 128
-        self.conv3 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(2, 2),  # -> 4x4
-        )
-
-        # Layer 4: 128 -> feature_dim
-        self.conv4 = nn.Sequential(
-            nn.Conv2d(128, feature_dim, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(feature_dim),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AdaptiveAvgPool2d((1, 1)),  # -> 1x1
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        out = self.conv1(x)
-        out = self.conv2(out)
-        out = self.conv3(out)
-        out = self.conv4(out)
-        return out.view(out.size(0), -1)
+logger = get_logger("classifiers")
 
 
 class LOTAClassifier(nn.Module):
     """
-    End-to-End LOTA AI-Generated Image Detection Classifier.
-    Takes raw image tensors (B, 3, 256, 256) or pre-extracted noise tensors (B, 12, 32, 32),
-    extracts LOTA LSB noise features, and predicts Real (0) vs Fake (1) logits.
+    Pure LOTA Classifier (Noise-Based Classifier).
+    
+    1. Accepts raw RGB image tensor (B, 3, 256, 256).
+    2. Extracts LOTA LSB noise map / maximum gradient patch via TopKLOTAExtractor.
+    3. Feeds noise map into ImageNet pre-trained ResNet backbone.
+    4. Outputs binary classification logits.
     """
     def __init__(
         self,
-        k_patches: int = 4,
+        k_patches: int = 1,
         patch_size: int = 32,
         grid_size: int = 8,
-        feature_dim: int = 256,
-        dropout: float = 0.3,
+        backbone_name: str = "resnet50",
+        use_full_lsb: bool = False,
     ):
         super().__init__()
-        self.k_patches = k_patches
-        self.patch_size = patch_size
-        self.grid_size = grid_size
-
-        # LOTA Feature Extractor
+        self.use_full_lsb = use_full_lsb
+        
+        # 1. LOTA Extractor
         self.lota_extractor = TopKLOTAExtractor(
             k_patches=k_patches,
             patch_size=patch_size,
             grid_size=grid_size,
         )
-
-        # Steganalysis CNN Backbone
-        in_channels = k_patches * 3  # 4 * 3 = 12 channels
-        self.backbone = LOTASteganalysisBackbone(in_channels=in_channels, feature_dim=feature_dim)
-
-        # Classification Head
-        self.classifier_head = nn.Sequential(
-            nn.Linear(feature_dim, 128),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-            nn.Linear(128, 1),
-        )
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        return_dict: bool = False,
-    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
-        """
-        Forward pass.
         
-        Args:
-            x: Input tensor of shape (B, 3, 256, 256) float in [0.0, 255.0] or (B, 12, 32, 32).
-            return_dict: Whether to return full output dictionary including LOTA intermediate features.
-
-        Returns:
-            Logit tensor of shape (B, 1) or dictionary with logits and LOTA features.
-        """
-        if x.ndim == 4 and x.shape[1] == 3:
-            lota_out = self.lota_extractor(x)
-            noise_tensor = lota_out["noise_tensor"]
-        elif x.ndim == 4 and x.shape[1] == self.k_patches * 3:
-            noise_tensor = x
-            lota_out = {}
+        # 2. ResNet backbone
+        if backbone_name == "resnet18":
+            from torchvision.models import resnet18, ResNet18_Weights
+            self.backbone = resnet18(weights=ResNet18_Weights.DEFAULT)
         else:
-            raise ValueError(f"Invalid input tensor shape for LOTAClassifier: {x.shape}")
+            self.backbone = resnet50(weights=ResNet50_Weights.DEFAULT)
+            
+        in_features = self.backbone.fc.in_features
+        self.backbone.fc = nn.Linear(in_features, 1)
 
-        features = self.backbone(noise_tensor)
-        logits = self.classifier_head(features)
-
-        if return_dict:
-            res = dict(lota_out)
-            res["features"] = features
-            res["logits"] = logits
-            return res
-
+    def forward(self, x: torch.Tensor, return_features: bool = False) -> torch.Tensor:
+        """
+        Args:
+            x: Input RGB tensor of shape (B, 3, 256, 256) in range [0.0, 255.0].
+        """
+        # If input is already an extracted LOTA noise map, bypass extractor
+        if hasattr(self, "_is_noise_map") and self._is_noise_map:
+            noise_patch = x
+        else:
+            lota_dict = self.lota_extractor(x)
+            if self.use_full_lsb:
+                noise_patch = lota_dict["z_norm"]
+            else:
+                noise_patch = lota_dict["noise_tensor"]
+                
+        # Scale to [0.0, 1.0]
+        noise_patch = noise_patch / 255.0
+        
+        # ImageNet normalization
+        mean = torch.tensor([0.485, 0.456, 0.406], device=noise_patch.device).view(1, 3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225], device=noise_patch.device).view(1, 3, 1, 1)
+        
+        noise_patch = (noise_patch - mean) / std
+        
+        logits = self.backbone(noise_patch)
         return logits
+

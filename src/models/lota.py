@@ -1,10 +1,10 @@
 """
 LOw-biT pAtch (LOTA) Preprocessing Architecture and MGPS Extraction Core.
 Exclusively implements LOTA bit-plane slicing, threshold normalization, 4-directional MGPS,
-and diverse Top-K quadrant patch selection without any MLEP or fusion modules.
+and single Maximum Gradient patch selection as per ICCV 2025.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,12 +23,13 @@ class TopKLOTAExtractor(nn.Module):
         3. Binarized Thresholding: Maps positive LSB noise z > 0 to 255.0, 0 remains 0.0.
         4. Directional Gradient Scoring: Convolves z_norm against fixed 2x2 kernels (gx, gy, gxy, gyx)
            and calculates L1 divergence scores across an 8x8 spatial grid of 32x32 patches.
-        5. Top-K Diverse Extraction: Extracts K highest divergence patches across distinct image quadrants
-           to prevent spatial overlap and maximize texture entropy representation.
+        5. Maximum Gradient Patch Selection: Extracts the single 32x32 patch with the highest
+           gradient divergence score.
+        6. Upscaling: Resizes the 32x32 patch back to 256x256 using nearest-neighbor interpolation.
     """
     def __init__(
         self,
-        k_patches: int = 4,
+        k_patches: int = 1,  # LOTA uses only 1 patch
         patch_size: int = 32,
         grid_size: int = 8,
         bit_planes: Optional[List[int]] = None,
@@ -38,14 +39,14 @@ class TopKLOTAExtractor(nn.Module):
         Initialize the LOTA Extractor and register fixed non-trainable gradient kernels.
 
         Args:
-            k_patches: Number of top divergence patches to extract (default K=4).
+            k_patches: Number of top divergence patches to extract (default K=1 for LOTA).
             patch_size: Spatial height and width of each MGPS grid patch (default 32).
             grid_size: Number of patches along each spatial dimension (default 8 for 256x256).
             bit_planes: List of LSB bit-plane indices to compose (default [0, 1, 2]).
             threshold_val: Normalization value for positive LSB activations (default 255.0).
         """
         super().__init__()
-        self.k_patches = k_patches
+        self.k_patches = 1  # Force K=1 as per paper
         self.patch_size = patch_size
         self.grid_size = grid_size
         self.bit_planes = bit_planes if bit_planes is not None else [0, 1, 2]
@@ -106,12 +107,22 @@ class TopKLOTAExtractor(nn.Module):
             bit = ((x_int & (1 << k)) >> k) * weight
             z = z + bit.to(torch.int32)
 
-        # Binarized thresholding normalization
-        z_norm = torch.where(
-            z > 0,
-            torch.tensor(self.threshold_val, device=x.device, dtype=x.dtype),
-            torch.tensor(0.0, device=x.device, dtype=x.dtype),
-        )
+        # LOTA-scl: Min-max scaling normalization to [0.0, 255.0]
+        # We compute min and max across spatial dimensions for each image and channel.
+        # This handles JPEG compression noise much better than raw thresholding!
+        
+        # Flatten spatial dimensions to find min/max
+        B, C, H, W = z.shape
+        z_float = z.to(torch.float32)
+        z_flat = z_float.view(B, C, -1)
+        
+        z_min = z_flat.min(dim=2, keepdim=True)[0].view(B, C, 1, 1)
+        z_max = z_flat.max(dim=2, keepdim=True)[0].view(B, C, 1, 1)
+        
+        # Avoid division by zero
+        range_val = torch.clamp(z_max - z_min, min=1e-5)
+        
+        z_norm = 255.0 * ((z_float - z_min) / range_val)
         return z_norm
 
     def _compute_mgps_scores(self, z_norm: torch.Tensor) -> torch.Tensor:
@@ -146,64 +157,18 @@ class TopKLOTAExtractor(nn.Module):
         scores = patch_scores.view(B, self.grid_size * self.grid_size)
         return scores
 
-    def _select_topk_quadrant_diverse(self, scores: torch.Tensor) -> torch.Tensor:
+    def _select_max_gradient_patch(self, scores: torch.Tensor) -> torch.Tensor:
         """
-        Select Top-K patch indices across distinct image quadrants to avoid spatial overlap.
-        For K=4 on an 8x8 grid, selects the single highest scoring patch from each 4x4 quadrant:
-            Quadrant 0 (Top-Left): rows 0-3, cols 0-3
-            Quadrant 1 (Top-Right): rows 0-3, cols 4-7
-            Quadrant 2 (Bottom-Left): rows 4-7, cols 0-3
-            Quadrant 3 (Bottom-Right): rows 4-7, cols 4-7
+        Select the single patch index with the highest MGPS score (Eq 6 in paper).
 
         Args:
             scores: Flattened patch scores of shape (B, 64).
 
         Returns:
-            torch.Tensor: Indices of selected Top-K patches of shape (B, K).
+            torch.Tensor: Indices of selected Top-1 patch of shape (B, 1).
         """
-        B, N = scores.shape
-        grid_scores = scores.view(B, self.grid_size, self.grid_size)
-        
-        half_g = self.grid_size // 2
-        
-        # Define quadrant slice bounds: (row_start, row_end, col_start, col_end)
-        quadrants = [
-            (0, half_g, 0, half_g),
-            (0, half_g, half_g, self.grid_size),
-            (half_g, self.grid_size, 0, half_g),
-            (half_g, self.grid_size, half_g, self.grid_size),
-        ]
-
-        selected_indices = []
-        for r_start, r_end, c_start, c_end in quadrants[: self.k_patches]:
-            quad_sub = grid_scores[:, r_start:r_end, c_start:c_end]  # (B, 4, 4)
-            quad_flat = quad_sub.reshape(B, -1)  # (B, 16)
-            
-            # Find argmax in quadrant
-            max_idx_sub = torch.argmax(quad_flat, dim=1)  # (B,)
-            
-            # Map local quadrant index back to global grid index (0..63)
-            sub_r = max_idx_sub // (c_end - c_start)
-            sub_c = max_idx_sub % (c_end - c_start)
-            
-            global_r = r_start + sub_r
-            global_c = c_start + sub_c
-            global_idx = global_r * self.grid_size + global_c  # (B,)
-            
-            selected_indices.append(global_idx)
-
-        # If k_patches > 4, fill remaining slots with global top-k excluding already chosen indices
-        while len(selected_indices) < self.k_patches:
-            stacked = torch.stack(selected_indices, dim=1)  # (B, current_k)
-            mask = torch.ones_like(scores, dtype=torch.bool)
-            mask.scatter_(1, stacked, False)
-            
-            masked_scores = scores.clone()
-            masked_scores[~mask] = -1.0
-            next_top = torch.argmax(masked_scores, dim=1)
-            selected_indices.append(next_top)
-
-        return torch.stack(selected_indices, dim=1)  # (B, K)
+        # argmax returns shape (B,) so we unsqueeze to (B, 1)
+        return torch.argmax(scores, dim=1, keepdim=True)
 
     def extract_patches_from_indices(
         self, z_norm: torch.Tensor, indices: torch.Tensor
@@ -213,10 +178,10 @@ class TopKLOTAExtractor(nn.Module):
 
         Args:
             z_norm: Thresholded LSB noise map of shape (B, C, H, W).
-            indices: Selected patch grid indices of shape (B, K).
+            indices: Selected patch grid indices of shape (B, 1).
 
         Returns:
-            torch.Tensor: Extracted patches of shape (B, K, C, patch_size, patch_size).
+            torch.Tensor: Extracted patches of shape (B, 1, C, patch_size, patch_size).
         """
         B, C, H, W = z_norm.shape
         K = indices.shape[1]
@@ -243,30 +208,32 @@ class TopKLOTAExtractor(nn.Module):
             dict containing:
                 - 'z_norm': Thresholded LSB noise map (B, 3, 256, 256)
                 - 'mgps_scores': Spatial divergence score matrix (B, 64)
-                - 'topk_indices': Grid indices of selected patches (B, K)
-                - 'topk_patches': Extracted 5D patch tensor (B, K, 3, 32, 32)
-                - 'noise_tensor': Stacked Top-K patches reshaped to (B, K * 3, 32, 32)
+                - 'top1_index': Grid index of selected patch (B, 1)
+                - 'top1_patch': Extracted 5D patch tensor (B, 1, 3, 32, 32)
+                - 'noise_tensor': Final resized patch (B, 3, 256, 256)
         """
         # 1 & 2 & 3: LSB composition and thresholding normalization
         z_norm = self._extract_lsb_threshold(x)
         
-        # 4: 4-directional MGPS gradient divergence scoring
+        # 4 & 5: Calculate divergence scores and select top 1 patch
         scores = self._compute_mgps_scores(z_norm)
+        top1_index = self._select_max_gradient_patch(scores)
         
-        # 5: Top-K diverse patch selection across quadrants
-        topk_indices = self._select_topk_quadrant_diverse(scores)
+        # 6: Extract the 32x32 patch
+        top1_patch = self.extract_patches_from_indices(z_norm, top1_index)
         
-        # 6: Patch extraction & tensor formatting
-        topk_patches = self.extract_patches_from_indices(z_norm, topk_indices)
+        # Squeeze the K dimension out -> (B, 3, 32, 32)
+        extracted_patch = top1_patch.squeeze(1)
         
-        # Stack channels across K patches for downstream architecture input (B, K*3, 32, 32)
-        B, K, C, P1, P2 = topk_patches.shape
-        noise_tensor = topk_patches.view(B, K * C, P1, P2)
+        # 7: Upscale the 32x32 patch to 256x256 using nearest-neighbor interpolation.
+        # This converts the binary noise into a continuous feature representation
+        # suitable for ResNet-50's spatial convolutions (as specified in the paper).
+        resized_patch = F.interpolate(extracted_patch, size=(256, 256), mode='nearest')
 
         return {
             "z_norm": z_norm,
             "mgps_scores": scores,
-            "topk_indices": topk_indices,
-            "topk_patches": topk_patches,
-            "noise_tensor": noise_tensor,
+            "top1_index": top1_index,
+            "top1_patch": top1_patch,
+            "noise_tensor": resized_patch,
         }

@@ -142,10 +142,17 @@ def generate_html(output_file: Path, auto_open: bool = True) -> None:
             margin-right: auto;
         }}
 
-        .theme-btn {{
+        .header-actions {{
             position: absolute;
             top: 0;
             right: 0;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }}
+
+        .theme-btn {{
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             color: var(--text-main);
@@ -162,6 +169,30 @@ def generate_html(output_file: Path, auto_open: bool = True) -> None:
         .theme-btn:hover {{
             border-color: var(--accent-cyan);
             transform: translateY(-2px);
+        }}
+
+        .nav-link-btn {{
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: #ffffff !important;
+            border: 1px solid var(--glass-border);
+            padding: 0.6rem 1.25rem;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }}
+
+        .nav-link-btn:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+            border-color: var(--accent-cyan);
         }}
 
         .badge {{
@@ -471,6 +502,46 @@ def generate_html(output_file: Path, auto_open: bool = True) -> None:
             color: var(--accent-blue);
         }}
 
+        .training-iframe-container {{
+            width: 100%;
+            height: 900px;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            overflow: hidden;
+            background: var(--bg-primary);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }}
+
+        .training-iframe-container iframe {{
+            width: 100%;
+            height: 100%;
+            border: none;
+        }}
+
+        .launch-card {{
+            background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(155, 81, 224, 0.1));
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }}
+
+        .launch-card-text h3 {{
+            font-size: 1.3rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.3rem;
+        }}
+
+        .launch-card-text p {{
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }}
+
         footer {{
             text-align: center;
             margin-top: 4rem;
@@ -490,7 +561,10 @@ def generate_html(output_file: Path, auto_open: bool = True) -> None:
     </div>
 
     <header>
-        <button id="theme-btn" class="theme-btn" onclick="toggleTheme()">☀️ Light Theme</button>
+        <div class="header-actions">
+            <button id="theme-btn" class="theme-btn" onclick="toggleTheme()">☀️ Light Theme</button>
+            <a href="LOTA_Training_Results.html" class="nav-link-btn">📊 Model Training Results &rarr;</a>
+        </div>
         <span class="badge">ICCV 2025 Architecture</span>
         <h1>LOTA Steganalysis & Preprocessing Dashboard</h1>
         <p class="subtitle">Interactive high-resolution visualization of 8-bit LSB plane decomposition, multi-directional gradient scoring, and quadrant-diverse Top-K noise patch extraction.</p>
@@ -528,6 +602,7 @@ def generate_html(output_file: Path, auto_open: bool = True) -> None:
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('tab-batch')">Dataset Batch Run (Real vs AI)</button>
             <button class="tab-btn" onclick="switchTab('tab-synth')">Synthetic Multi-Texture Benchmark</button>
+            <button class="tab-btn" onclick="switchTab('tab-training')">📊 Model Training Results</button>
             <button class="tab-btn" onclick="switchTab('tab-report')">Raw Analytics & Architecture</button>
         </div>
 
@@ -591,7 +666,25 @@ def generate_html(output_file: Path, auto_open: bool = True) -> None:
             </div>
         </div>
 
-        <!-- TAB 3: ANALYTICS REPORT -->
+        <!-- TAB 3: MODEL TRAINING RESULTS -->
+        <div id="tab-training" class="tab-content">
+            <h2 class="section-title">ResNet-50 LOTA Steganalysis Training & Evaluation Results</h2>
+            <p class="section-desc">Live embedded view of the full training history, loss convergence curves, validation accuracy (89.85%), ROC-AUC (96.21%), and confusion matrix evaluation from <code>LOTA_Training_Results.html</code>.</p>
+            
+            <div class="launch-card">
+                <div class="launch-card-text">
+                    <h3>🚀 Dedicated Training Results Dashboard</h3>
+                    <p>Open the full interactive training dashboard directly in a new standalone tab for high-resolution chart analysis.</p>
+                </div>
+                <a href="LOTA_Training_Results.html" target="_blank" class="nav-link-btn" style="font-size: 1rem; padding: 0.75rem 1.75rem;">Launch Dedicated Report &rarr;</a>
+            </div>
+
+            <div class="training-iframe-container">
+                <iframe src="LOTA_Training_Results.html" title="LOTA Steganalysis Training Results"></iframe>
+            </div>
+        </div>
+
+        <!-- TAB 4: ANALYTICS REPORT -->
         <div id="tab-report" class="tab-content">
             <h2 class="section-title">Pipeline Execution Analytics & Configuration</h2>
             <p class="section-desc">Master JSON execution summary generated by <code>scripts/run_project.py</code>.</p>
