@@ -203,8 +203,8 @@ def generate_results_dashboard():
     <div class="banner-overfitting">
         <div class="banner-title">⚠️ Overfitting Diagnosis: Standard Adam vs. Decoupled AdamW</div>
         <div class="banner-desc">
-            Standard <strong>Adam</strong> reaches near-perfect <strong>99.95% Training Accuracy</strong> by memorizing high-frequency training image noise, creating a massive <strong>11.75% Generalization Gap</strong> ($\Delta = \text{{Train}} - \text{{Val}}$). <br>
-            <strong>WHY WE CHOOSE ADAMW:</strong> <strong>AdamW</strong> decouples weight decay ($\lambda = 0.01$) from gradient updates, maintaining an optimal <strong>95.60% Train Acc</strong> and achieving the highest test generalization with a small <strong>8.1% gap</strong>.
+            Standard <strong>Adam</strong> reaches near-perfect <strong>99.95% Training Accuracy</strong> by memorizing high-frequency training image noise, creating a massive <strong>11.75% Generalization Gap</strong> (&Delta; = Train Acc - Val Acc). <br>
+            <strong>WHY WE CHOOSE ADAMW:</strong> <strong>AdamW</strong> decouples weight decay (&lambda; = 0.01) from gradient updates, maintaining an optimal <strong>95.60% Train Acc</strong> and achieving the highest test generalization with a small <strong>8.1% gap</strong>.
         </div>
     </div>
 
