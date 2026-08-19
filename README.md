@@ -102,6 +102,9 @@ Out-of-the-box optimizations enabled for maximum GPU utilization:
 git clone https://github.com/aishwaryanevrekar/Dual-Cue-AI-Generated-Image-Detection-via-Entropy-and-Bit-Plane-Feature-Fusion.git
 cd Dual-Cue-AI-Generated-Image-Detection-via-Entropy-and-Bit-Plane-Feature-Fusion
 
+# Install dependencies
+pip install -r requirements.txt
+
 # 1. Run zero-shot evaluation on dataset10000 (Evaluates 2,000 real test images)
 python scripts/evaluate_zeroshot.py
 
