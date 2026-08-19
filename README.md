@@ -25,10 +25,10 @@
 
 ## 👥 Authors & Affiliation
 
-- **Kushagra Gupta\*** — [`Kushagra.G27pgai@jioinstitute.edu.in`](mailto:Kushagra.G27pgai@jioinstitute.edu.in)
-- **Aishwarya Nevrekar\*** — [`Aishwarya.N27pgai@jioinstitute.edu.in`](mailto:Aishwarya.N27pgai@jioinstitute.edu.in)
-- **Institution:** Artificial Intelligence & Data Science Programme, **Jio Institute**, Navi Mumbai, Maharashtra, India  
-- *\*Equal contribution & co-first authorship*
+- 👨‍💻 **Kushagra Gupta**<sup>*</sup> — [`Kushagra.G27pgai@jioinstitute.edu.in`](mailto:Kushagra.G27pgai@jioinstitute.edu.in)
+- 👩‍💻 **Aishwarya Nevrekar**<sup>*</sup> — [`Aishwarya.N27pgai@jioinstitute.edu.in`](mailto:Aishwarya.N27pgai@jioinstitute.edu.in)
+- 🏫 **Institution:** Artificial Intelligence & Data Science Programme, **Jio Institute**, Navi Mumbai, Maharashtra, India  
+- 💡 *<sup>*</sup>Equal contribution & co-first authorship*
 
 ---
 
@@ -71,29 +71,29 @@ graph TD
 
 ### 🧠 Core Technical Pillars Unlocking 95.2% Accuracy
 
-1. **Dual Forensic Streams**: Entropy patterns (MLEP) + LSB bit-plane noise (LOTA) capture orthogonal tampering signals.
-2. **Pyramid Cross-Attention (MGA-Net Module)**: Interlocks Stage 3 (`1024x8x8`) and Stage 2 (`512x16x16`) features, forcing the network to correlate spatial entropy chaos with pixel-level LSB noise in identical regions simultaneously (**+3.4% accuracy boost**).
-3. **Supervised Contrastive Alignment (Loss_SupCon)**: Synchronizes dual features in normalized temperature-scaled contrastive space (**+1.5% accuracy boost**).
-4. **Temperature-Annealed Dynamic MoE Routing (tau = 0.5)**: Prevents gating collapse (`alpha = [0.3245, 0.2810, 0.2185, 0.1760]`), routing ambiguous samples across 4 specialized expert heads (**+0.7% accuracy boost**).
+1. 🌊 **Dual Forensic Streams**: Entropy patterns (MLEP) + LSB bit-plane noise (LOTA) capture orthogonal tampering signals.
+2. 🔗 **Pyramid Cross-Attention (MGA-Net Module)**: Interlocks Stage 3 (`1024x8x8`) and Stage 2 (`512x16x16`) features, forcing the network to correlate spatial entropy chaos with pixel-level LSB noise in identical regions simultaneously (**+3.4% accuracy boost**).
+3. 🎯 **Supervised Contrastive Alignment (Loss_SupCon)**: Synchronizes dual features in normalized temperature-scaled contrastive space (**+1.5% accuracy boost**).
+4. 🔀 **Temperature-Annealed Dynamic MoE Routing (tau = 0.5)**: Prevents gating collapse (`alpha = [0.3245, 0.2810, 0.2185, 0.1760]`), routing ambiguous samples across 4 specialized expert heads (**+0.7% accuracy boost**).
 
 ---
 
 ## ⚡ Hardware Acceleration (NVIDIA RTX GPUs)
 
 Out-of-the-box optimizations enabled for maximum GPU utilization:
-- **Tensor Core MatMul TF32 Acceleration**: `torch.set_float32_matmul_precision("high")` + `allow_tf32 = True`.
-- **cuDNN Auto-Tuner Enabled**: `torch.backends.cudnn.benchmark = True`.
-- **Automatic Mixed Precision (AMP)**: `torch.amp.autocast('cuda', dtype=torch.float16)`.
-- **PyTorch CUDA Memory Allocator**: `PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:128"`.
+- 🚀 **Tensor Core MatMul TF32 Acceleration**: `torch.set_float32_matmul_precision("high")` + `allow_tf32 = True`.
+- ⚙️ **cuDNN Auto-Tuner Enabled**: `torch.backends.cudnn.benchmark = True`.
+- ⚖️ **Automatic Mixed Precision (AMP)**: `torch.amp.autocast('cuda', dtype=torch.float16)`.
+- 💾 **PyTorch CUDA Memory Allocator**: `PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:128"`.
 
 ---
 
 ## 🚀 Quick Start & Execution
 
 ### Prerequisites
-- Python 3.9 or higher
-- PyTorch 2.0+ with CUDA support
-- Git
+- 🐍 Python 3.9 or higher
+- 🔥 PyTorch 2.0+ with CUDA support
+- 🐙 Git
 
 ### Execution Commands
 
